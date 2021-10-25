@@ -25,7 +25,7 @@ VALUES  ("Rachel", "Green", 6),
         ("Monica", "Geller", 2),
         ("Chandler", "Bing", 7),
         ("Phoebe", "Buffay", 1),
-        ("Ross", "Geller", 4),
+        ("Ross", "Geller", 2),
         ("Joey", "Tribbiani", 7),
         ("Mike", "Hannigan", 3),
         ("Janice", "Goralnik", 3),
@@ -33,10 +33,10 @@ VALUES  ("Rachel", "Green", 6),
         ("Jill", "Green", 1),
         ("Charlie", "Wheeler", 2),
         ("Amy", "Green", 1),
-        ("Jack", "Geller", 2),
-        ("Judy", "Geller", 4),
+        ("Jack", "Geller", 4),
+        ("Judy", "Geller", 5),
         ("Sarah", "Tuttle", 6);
 
 UPDATE employees
 SET manager_id = 13
-WHERE role_id IN (1,3,4,5,6,7)
+WHERE role_id NOT IN (1,2,3,5,6,7)
