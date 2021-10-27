@@ -1,3 +1,5 @@
+USE friends_db;
+
 INSERT INTO department (department_name)
 VALUES  ("Marketing"),
         ("Finance"),
@@ -38,5 +40,5 @@ VALUES  ("Rachel", "Green", 6),
         ("Sarah", "Tuttle", 6);
 
 UPDATE employees
-SET manager_id = 13
-WHERE role_id NOT IN (1,2,3,5,6,7)
+SET manager_id = 3
+WHERE id IN (1,2,4,5,6,7,8,9,10,11,12,13,14,15);
