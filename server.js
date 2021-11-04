@@ -6,6 +6,7 @@ const connection = require('./db/connection');
 const util = require('util');
 const { Table } = require('console-table-printer');
 const { allowedNodeEnvironmentFlags } = require('process');
+const { convertRawRowOptionsToStandard } = require('console-table-printer/dist/src/utils/table-helpers');
 
 const query = util.promisify(connection.query).bind(connection);
 
@@ -31,7 +32,7 @@ function init() {
                 'Add a Role',
                 'Add an Employee',
                 'Update an Employee Role',
-                'Delete an Employee',
+                // 'Delete an Employee',
                 'Exit'
             ]
         }])
@@ -52,15 +53,15 @@ function init() {
                 case 'Add a Role':
                     inquirerRole();
                     break;
-                case 'Add an employee':
+                case 'Add an Employee':
                     inquiererEmployee();
                     break;
-                case 'Update an Employee role':
+                case 'Update an Employee Role':
                     inquirerUpdateEmployee();
                     break;
-                    case 'Delete an Employee':
-                    inquirerDeleteEmployee();
-                    break;
+                    // case 'Delete an Employee':
+                    // inquirerDeleteEmployee();
+                    // break;
                 case 'Exit':
                     connection.end();
                     break;
@@ -83,7 +84,7 @@ async function getAllDepts() {
 
 async function getAllRoles() {
     try {
-        const rows = await query('SELECT r.id, title, salary, d.department_name AS department FROM roles r JOIN department d ON r.department_id = d.id');
+        const rows = await query('SELECT r.id, r.title, r.salary, d.department_name AS department FROM roles r JOIN department d ON r.department_id = d.id');
         constoleTable(rows);
     } finally {
         init();
@@ -92,7 +93,7 @@ async function getAllRoles() {
 
 async function getAllEmployees() {
     try {
-        const rows = await query('SELECT e.first_name, e.last_name, m.last_name AS manager FROM employees e JOIN employees m ON e.manager_id = m.id');
+        const rows = await query('SELECT e.id, e.first_name, e.last_name, r.title, d.department_name, r.salary, m.last_name AS manager FROM employees e LEFT JOIN roles r ON e.role_id = r.id LEFT JOIN department d ON r.department_id = d.id LEFT JOIN employees m ON e.manager_id = m.id;');
         constoleTable(rows);
     } finally {
         init();
@@ -109,26 +110,28 @@ async function inquiererDeparment() {
             }
         ])
         .then ((response) => {
-            addDepartment(response);
-        });
-    }
+            async function addDepartment(response) {
+                let selAllDep = `SELECT * FROM department;`
+                try {
+                    //add the department to the department table
+                    const { departmentName } = response;
+                    await query (`INSERT INTO department (department_name) VALUES (?);`, [departmentName]);
+                    //get the data from the query
+                    const rows = await query(selAllDep);
+                   //console table the data
+                    constoleTable(rows);
+                } finally {
+                    init();
+                }
+            } addDepartment(response);
+            });
 
-async function addDepartment(response) {
-        //get the department name from response
-        const { departmentName } = response;
-        try {
-            //add the department to the department table
-            await query (`INSERT INTO department (department_name) VALUES (?);`, [departmentName]);
-            //get the data from the query
-            const rows = await query('SELECT * FROM departments;');
-           //console table the data
-            constoleTable(rows);
-        } finally {
-            init();
-        }
-    }
+}     
 
 async function inquirerRole() {
+    let allDepts = `SELECT * FROM department`
+    const rows = await query(allDepts)
+    constoleTable(rows)
     inquirer
         .prompt ([
             {
@@ -144,32 +147,32 @@ async function inquirerRole() {
             {
                 type: 'input',
                 name: 'roleDepartment',
-                message: 'What is the department of the new role you like to add?'
+                message: "From the table above, enter the department id for your new role:"
             }
         ])
         .then ((response) => {
-            addRole(response);
-        });
-}
-
-async function addRole(response) {
-    //get the role data from the response
-    const { roleName, roleSalary, roleDepartment } = response;
-    const deptIdArr = await query(`SELECT id FROM department WHERE department_name = ${roleDepartment}`)
-    const deptId = deptIdArr[0].id;
-    try {
+           async function addRole(response) {
+           const { roleName, roleSalary, roleDepartment } = response;
+           let allRoleQuery = `SELECT * FROM roles;`
+        try {
         //add the role to roles table
-        await query(`INSERT INTO roles (title, salary, department_id) VALUES (${roleName}, ${roleSalary}, ${deptId});`)
+        await query(`INSERT INTO roles (title, salary, department_id) VALUES (?,?,?);`, [roleName, roleSalary, roleDepartment])
         //get the data from the query
-        const rows = await query('');
+        const rows = await query(allRoleQuery)
         //console Table the data
         constoleTable(rows);
     } finally {
         init();
     }
 }
+    addRole(response);
+})
+}
 
 async function inquiererEmployee() {
+    let allRoles = `SELECT * FROM roles`;
+    const rows = await query (allRoles)
+    console.table(rows)
     inquirer
         .prompt([
             {
@@ -185,7 +188,7 @@ async function inquiererEmployee() {
             {
                 type: 'input',
                 name: 'employeeRole',
-                message: 'What is the name of the role of the new employee you would like to add?'
+                message: 'From the table above enter your new employees role id'
             },
             {
                 type: 'input',
@@ -194,84 +197,88 @@ async function inquiererEmployee() {
             }
         ])
         .then((response) => {
-            addEmployee(response);
+            async function addEmployee(response) {
+                const { employeeFirst, employeeLast, employeeRole, employeeManager } = response;
+                const manager = await query (`SELECT id FROM employees WHERE last_name=?;`, [employeeManager]);
+                const managerID = manager[0].id;
+                try {
+                    await query(`INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`, [employeeFirst, employeeLast, employeeRole, managerID])
+                    const rows = await query (`SELECT * FROM employees;`);
+                    console.table(rows);
+                } finally {
+                    init();
+                }
+            }
+            addEmployee(response)
         });
 }
 
-async function addEmployee(response) {
-    //get the employee data from the response
-    const { employeeFirst, employeeLast, employeeRole, employeeManager } = response;
-    const roleIdArr = await query(`SELECT id FROM roles WHERE title =?;`,[employeeRole]);
-    const roleId = roleIdArr[0].id;
-    const empIdArr = await query(`SELECT id FROM employees WHERE last_name=?,`, [employeeManager]);
-    const managerId = empIdArr[0].id;
-    try {
-        //add the employee to employees table
-        await query(`INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`, [employeeFirst, employeeLast, roleId, managerId])
-        //get the data from the query
-        const rows = await query('SELECT e.id e.first_name, e.last_name, r.title AS role, d.department_name AS department, r.salary, m.first_name AS manager FROM employees e LEFT JOIN roles r ON e.role_id = r.id LEFT JOIN department d ON r.department_id = d.id LEFT JOIN employees m ON e.manager_id = m.id;');
-        //console Table the data
-        constoleTable(rows);
-    } finally {
-        init();
-    }
-}
 
-let employeeNames = [];
-async function getCurrentEmployees() {
-    const employeeData = await query(`SELECT first_name, last_name FROM employees;`);
-    for (let i = 0; i < employeeData.length; i++) {
-        let firstName = employeeData[i].first_name;
-        let lastName = employeeData[i].last_name;
-        employeeNames.push(`${firstName} ${lastName}`)
-    }
-    return employeeNames;
-}
-
-async function inquirerUpdateEmployee() {
-    let currentEmployees = await getCurrentEmployees();
+async function inquirerUpdateEmployee() { 
+    let allRoles = `SELECT * FROM roles`;
+    const rows = await query(allRoles);
+    console.table(rows)
     inquirer    
         .prompt([
             {
-                type: 'list',
-                name: 'chosenEmployee',
-                message: 'Which employee would you like to update?',
-                choices: currentEmployees
+                type: 'input',
+                name: 'employeeFirstName',
+                message: "What is the employee's first name?",
             },
             {
                 type: 'input',
-                name: 'chosenRole',
-                message: 'What new role would you like this employee to have?',
-                choices: currentEmployees
+                name: 'employeeLastName',
+                message: "What is the employee's last name?",
+            },
+            {
+                type: 'input',
+                name: 'employeeRole',
+                message: "From the table above, enter employee's new role NUMBER:",
+            },
+            {
+                type: 'input',
+                name: 'employeeManager',
+                message: "What is the last name of the manager of the new employee?"
             }
         ])
         .then((response) => {
-            updateEmployee(response);
-        });
-}
-
-async function updateEmployee(response) {
-        try {
-            const { chosenEmployee, chosenRole } = response;
-            const nameArr = chosenEmployee.split(' ');
-            const firstName = nameArr[0];
-            const lastName = nameArr[1];
-            const roleIdArr = await query(`SELECT id FROM roles WHERE title=?;`, [chosenRole]);
-            const roleId = roleIdArr[0].id;
-
-            await query (`UPDATE employees SET role_id=? WHERE first_name=? and last_name=?;`, [roleId, firstName, lastName]);
-            //get the data from the query
-            const rows = await query('UPDATE employees SET role_id=? WHERE first_name=? AND last_name?;', [
-                roleId,
-                firstName,
-                lastName
-            ]);
-           //console table the data
-            constoleTable(rows);
-        } finally {
-            init();
+            async function updatedEmployee (response) {
+                const { employeeFirstName, employeeLastName,employeeRole,employeeManager } = response;
+                const manager = await query(`SELECT id FROM employees WHERE last_name=?;`, [employeeManager]);
+                const managerID = manager[0].id;
+                try {
+                    await query(`INSERT INTO employees (first_name, last_name, role_id, manager_id) VALUES (?,?,?,?);`, [employeeFirstName, employeeLastName,employeeRole, managerID]);
+                    const rows = await query(`SELECT * FROM employees;`);
+                    console.table(rows);
+                } finally {
+                   init();
+                }
+            }
+            updatedEmployee(response);
+        })
         }
-}
+
+        
+//         .then((response) => {
+//                 async function updatedEmployee (response) {
+//                     const { employeeFirstName, employeeRole } = response;
+//                     try{
+//                      await query(`UPDATE employees SET role_id=? WHERE first_name=?;`, [employeeRole, employeeFirstName]);
+//                      let allEmployees = `SELECT * FROM employees;`
+//                      const rows = await query(allEmployees)
+//                      console.table(rows);
+//                 } finally {
+//                     init();
+//                 }
+//                     }
+//                     updatedEmployee(response);
+//             })
+// }
+
+
+
+
+
 
 async function inquirerDeleteEmployee() {
     const currentEmployees = await getCurrentEmployees();
@@ -289,17 +296,17 @@ async function inquirerDeleteEmployee() {
         });
 }
 
-async function deleteEmployee(response) {
-    try{
-        const { deletedEmployee } = response;
-        const nameArr = deletedEmployee.split(' ');
-        const firstName = nameArr[0];
-        const lastName = nameArr[1];
-        await query(`DELETE FROM employees WHERE first_name=? and last_name=?;` [firstName, lastName]);
-        await query (`SELECT e.id, e.first_name, e.last_name, r.title AS role, d.department_name AS department, r.salary, m.first_name AS manager FROM employees e LEFT JOIN roles r ON e.role_id = r.id LEFT JOIN department d ON r.department_id = d.id LEFT JOIN employees m ON e.manager_id = m.id;`)
-    } finally {
-        init();
-    }
-}
+// async function deleteEmployee(response) {
+//     try{
+//         const { deletedEmployee } = response;
+//         const nameArr = deletedEmployee.split(' ');
+//         const firstName = nameArr[0];
+//         const lastName = nameArr[1];
+//         await query(`DELETE FROM employees WHERE first_name=? and last_name=?;` [firstName, lastName]);
+//         await query (`SELECT e.id, e.first_name, e.last_name, r.title AS role, d.department_name AS department, r.salary, m.first_name AS manager FROM employees e LEFT JOIN roles r ON e.role_id = r.id LEFT JOIN department d ON r.department_id = d.id LEFT JOIN employees m ON e.manager_id = m.id;`)
+//     } finally {
+//         init();
+//     }
+// }
 
 init();
