@@ -1,4 +1,4 @@
-# Homework-12-SQL-Employee-Tracker
+# SQL-Employee-Tracker
 
 ## Description
 This application allows you to view and manage the departments, roles, and employees in your company.
