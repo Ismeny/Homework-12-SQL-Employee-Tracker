@@ -1,7 +1,7 @@
 # SQL-Employee-Tracker
 
 ## Description
-This application allows you to view and manage the departments, roles, and employees in your company.
+An employee tracker that uses Node.js command-line to interacts with an employee database. The user can view current database by department, roles, or employees. The user can also add a department, role or employee, as well as updating the role of an employee. The most up-to-date database can be seen as a table in the command-line for quick reference.
 
 
 ## Table of contents
